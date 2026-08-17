@@ -1,0 +1,30 @@
+[tasks]
+reset
+decode
+stable
+outstanding
+worder
+
+[options]
+mode prove
+depth 20
+# No SMT solver is installed alongside ABC on this machine, and aigsmt is only
+# used to expand a counterexample into a waveform. Disabling it keeps a genuine
+# FAIL reported as FAIL instead of as a tool ERROR.
+aigsmt none
+
+[engines]
+abc pdr
+
+[script]
+read_verilog -formal axi4_lite_interconnect.v
+reset:       read_verilog -formal -DPROP_RESET axi4_lite_ic_formal.v
+decode:      read_verilog -formal -DPROP_DECODE axi4_lite_ic_formal.v
+stable:      read_verilog -formal -DPROP_STABLE axi4_lite_ic_formal.v
+outstanding: read_verilog -formal -DPROP_OUTSTANDING axi4_lite_ic_formal.v
+worder:      read_verilog -formal -DPROP_WORDER axi4_lite_ic_formal.v
+prep -top axi4_lite_ic_formal
+
+[files]
+../rtl/axi4_lite_interconnect.v
+axi4_lite_ic_formal.v

@@ -1,0 +1,23 @@
+[tasks]
+reset
+decode
+idroute
+
+[options]
+mode prove
+depth 20
+aigsmt none
+
+[engines]
+abc pdr
+
+[script]
+read_verilog -formal axi4_interconnect.v
+reset:   read_verilog -formal -DPROP_RESET axi4_ic_formal.v
+decode:  read_verilog -formal -DPROP_DECODE axi4_ic_formal.v
+idroute: read_verilog -formal -DPROP_IDROUTE axi4_ic_formal.v
+prep -top axi4_ic_formal
+
+[files]
+../rtl/axi4_interconnect.v
+axi4_ic_formal.v

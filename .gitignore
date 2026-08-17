@@ -1,0 +1,22 @@
+# simulation artifacts
+sim/build/
+sim/logs/
+*.vcd
+*.vvp
+*.wlf
+transcript
+
+# ModelSim work library
+sim/modelsim/work/
+work/
+
+# SymbiYosys work directories (bare name, or <name>_<task> when tasks are used)
+formal/lite_ic/
+formal/lite_ic_*/
+formal/ic/
+formal/ic_*/
+formal/dbg_*/
+formal/*.log
+
+# mutation audit scratch copies
+mutation/scratch/
