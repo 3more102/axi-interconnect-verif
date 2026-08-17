@@ -1,0 +1,24 @@
+# Bug-injection (mutation) catalogue -- VERIF_PLAN.md section 7.
+#
+# One single-line change per row, applied to a scratch copy of rtl/. Every row
+# must be KILLED: at least one listed test must fail with the mutation applied.
+# A survivor is a verification hole, not a curiosity.
+#
+# Format:  id | rtl file | sed expression | tier | targets | description
+#   tier    = sim   -> targets are <testbench>:<test> pairs run under Icarus
+#             formal-> targets are <sby file>:<task> pairs run under SymbiYosys
+#
+M01|axi4_lite_slave.v|s/if (wr_strb\[0\]) regs\[wr_index\]\[7:0\]/if (1'b0) regs[wr_index][7:0]/|sim|tb_axi4_lite_slave:strobes,tb_axi4_lite_slave:random|drop write-strobe lane 0 in the lite register file
+M02|axi4_lite_slave.v|s/wire        wr_ok    = (wr_index < NUM_REGS);/wire        wr_ok    = (wr_index <= NUM_REGS);/|sim|tb_axi4_lite_slave:errors,tb_axi4_lite_slave:random|SLVERR index threshold off by one
+M03|axi4_mem_slave.v|s/wire        wr_in_range = (wr_addr\[11:0\] < MEM_BYTES);/wire        wr_in_range = (wr_addr[11:0] <= MEM_BYTES);/|sim|tb_axi4_mem_slave:errors,tb_axi4_mem_slave:boundary|write valid-range threshold off by one
+M04|axi4_mem_slave.v|s/wire ar_in_range      = (s_axi_araddr\[11:0\] < MEM_BYTES);/wire ar_in_range      = (s_axi_araddr[11:0] <= MEM_BYTES);/|sim|tb_axi4_mem_slave:errors,tb_axi4_mem_slave:boundary|read valid-range threshold off by one
+M05|axi4_lite_interconnect.v|s/else if (addr\[31:12\] == 20'h00001)/else if (addr[31:12] == 20'h00002)/|sim|tb_axi4_lite_interconnect:targeted,tb_axi4_lite_interconnect:random|lite decode sends S1 traffic to the default slave
+M06|axi4_lite_interconnect.v|s/localparam \[1:0\]  RESP_DECERR = 2'b11;/localparam [1:0]  RESP_DECERR = 2'b00;/|sim|tb_axi4_lite_interconnect:decerr,tb_axi4_lite_interconnect:random|lite default slave answers OKAY instead of DECERR
+M07|axi4_lite_interconnect.v|s/                w_rr_m0         <= ~wgrant_owner_m0;/                w_rr_m0         <= wgrant_owner_m0;/|sim|tb_axi4_lite_interconnect:fairness|round-robin priority never alternates on destination M0
+M08|axi4_lite_interconnect.v|s/assign wrel_m0  = m0_axi_bvalid \&\& m0_axi_bready;/assign wrel_m0  = m0_axi_wvalid \&\& m0_axi_wready;/|sim|tb_axi4_lite_interconnect:contention,tb_axi4_lite_interconnect:parallel,tb_axi4_lite_interconnect:random|write grant released at W instead of at B
+M09|axi4_interconnect.v|s/if (m0_axi_bvalid \&\& (m0_axi_bid\[ID_WIDTH\] == 1'b0)) begin/if (m0_axi_bvalid \&\& (m0_axi_bid[ID_WIDTH] == 1'b1)) begin/|sim|tb_axi4_interconnect:targeted,tb_axi4_interconnect:random|B response routed by an inverted ID bit
+M10|axi4_interconnect.v|s/assign rhit0_m0  = m0_axi_rvalid \&\& (m0_axi_rid\[ID_WIDTH\] == 1'b0);/assign rhit0_m0  = m0_axi_rvalid \&\& (m0_axi_rid[ID_WIDTH] == 1'b1);/|sim|tb_axi4_interconnect:targeted,tb_axi4_interconnect:random|R beats routed by an inverted ID bit
+M11|axi4_mem_slave.v|s/if (s_axi_wlast) begin/if (1'b0) begin/|sim|tb_axi4_mem_slave:incr,tb_axi4_mem_slave:smoke|write burst never terminates on WLAST
+M12|axi4_lite_interconnect.v|s/else if (addr\[31:12\] == 20'h00001)/else if (addr[31:12] == 20'h00002)/|formal|lite_ic:decode|decode mutation must break the formal decode proof
+M13|axi4_lite_interconnect.v|s/assign s0_axi_awready = aresetn \&\& !wr_active0;/assign s0_axi_awready = !wr_active0;/|formal|lite_ic:reset|reset gating removed from a master-port READY
+M14|axi4_lite_interconnect.v|s/assign wrel_m0  = m0_axi_bvalid \&\& m0_axi_bready;/assign wrel_m0  = m0_axi_wvalid \&\& m0_axi_wready;/|formal|lite_ic:stable,lite_ic:outstanding|early grant release must break a formal proof too

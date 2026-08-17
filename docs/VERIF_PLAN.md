@@ -42,17 +42,26 @@ how it is checked, and what the regression/coverage closure criteria are.
 A test passes only if **all three** report zero errors AND the test's own
 sequencing completed (watchdog not hit).
 
-## 3. Regression matrix (20 runs)
+## 3. Regression matrix (24 tests, 28 runs)
 
 | TB | Tests |
 |----|-------|
 | tb_axi4_lite_slave | smoke, strobes, errors, aliasing, random |
-| tb_axi4_lite_interconnect | targeted, decerr, contention, parallel, random |
+| tb_axi4_lite_interconnect | targeted, decerr, contention, parallel, **fairness**, random |
 | tb_axi4_mem_slave | smoke, incr, wrap, fixed, narrow, errors, boundary, random |
 | tb_axi4_interconnect | targeted, decerr, parallel, contention, random |
 
-(23 runs total. Default seed 1; regression must also be clean with SEED=7 for
-the `random` tests — the regression script runs random tests twice.)
+24 distinct tests. Default seed 1; the four `random` tests are additionally
+rerun at SEED=7, giving **28 runs**.
+
+(Earlier revisions of this section said "20 runs" in the heading and "23 runs
+total" in the note; neither matched the listed tests. The counts above are the
+ones the `sim/Makefile` matrix actually executes.)
+
+`fairness` was added by the mutation audit (§7): breaking the round-robin
+priority update survived every other test, because with single-outstanding
+masters the arbiter's priority pointer is only consulted when both masters have
+an AW pending at the same instant, and no other test creates that tie.
 
 ## 4. Coverage closure
 

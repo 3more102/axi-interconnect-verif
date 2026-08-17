@@ -484,6 +484,15 @@ module tb_axi4_mem_slave;
       // a narrow straddle behaves the same way
       wr_burst(4'h6, 32'h0000_0BFE, 8'd3, 3'd1, BT_INCR);   // 0xBFE,0xC00,..
       rd_burst(4'h6, 32'h0000_0BFE, 8'd3, 3'd1, BT_INCR);
+
+      // The first out-of-range word, 0xC00, must be the ONLY failing beat in at
+      // least one burst. In the straddles above 0xC04 is out of range too, so an
+      // off-by-one on the range comparison still produces SLVERR and hides
+      // itself; here it would flip BRESP to OKAY and be caught. (Mutation M03.)
+      wr_burst(4'h7, 32'h0000_0BFC, 8'd1, 3'd2, BT_INCR);   // 0xBFC ok, 0xC00 bad
+      rd_burst(4'h7, 32'h0000_0BFC, 8'd1, 3'd2, BT_INCR);
+      wr_burst(4'h8, 32'h0000_0C00, 8'd0, 3'd2, BT_INCR);   // single beat at 0xC00
+      rd_burst(4'h8, 32'h0000_0C00, 8'd0, 3'd2, BT_INCR);
     end
   endtask
 

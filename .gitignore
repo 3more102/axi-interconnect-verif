@@ -20,3 +20,13 @@ formal/*.log
 
 # mutation audit scratch copies
 mutation/scratch/
+
+# ModelSim outputs
+sim/modelsim/work/
+sim/modelsim/transcript
+sim/modelsim/run_all.out
+sim/modelsim/*.wlf
+
+# mutation audit outputs
+mutation/scratch/
+mutation/full_run.log

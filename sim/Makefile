@@ -30,8 +30,9 @@ TEST ?= smoke
 SEED ?=
 DUMP ?=
 
-# Regression matrix (VERIF_PLAN.md section 3). 23 distinct tests; the four
-# `random` tests are additionally rerun at SEED=7, giving 27 runs.
+# Regression matrix (VERIF_PLAN.md section 3), plus the `fairness` test added by
+# the mutation audit. 24 distinct tests; the four `random` tests are
+# additionally rerun at SEED=7, giving 28 runs.
 REGRESS_S1 := \
   tb_axi4_lite_slave:smoke \
   tb_axi4_lite_slave:strobes \
@@ -42,6 +43,7 @@ REGRESS_S1 := \
   tb_axi4_lite_interconnect:decerr \
   tb_axi4_lite_interconnect:contention \
   tb_axi4_lite_interconnect:parallel \
+  tb_axi4_lite_interconnect:fairness \
   tb_axi4_lite_interconnect:random \
   tb_axi4_mem_slave:smoke \
   tb_axi4_mem_slave:incr \

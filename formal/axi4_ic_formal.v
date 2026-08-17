@@ -218,6 +218,13 @@ module axi4_ic_formal #(
     // that state anywhere. These assumptions say only what real AXI requires,
     // plus the single-outstanding scope SPEC.md section 11 documents.
     // =========================================================================
+// Only the `decode` property reasons about the DUT's captured per-master state
+// and therefore needs the full burst-accurate environment below. `reset` needs
+// nothing but the in-reset quiet rule, and `idroute` needs no assumptions at
+// all -- it is a pure mux property. Giving each property the weakest premise
+// that makes it meaningful keeps the two cheap proofs both stronger AND fast:
+// the queue model roughly doubles the state space and stalls PDR.
+`ifdef ENV_FULL
 `define CHAN_HIST(NM, WIDTH, VAL, RDY, PL)                                     \
     reg             NM``_v_q = 1'b0;                                           \
     reg             NM``_r_q = 1'b0;                                           \
@@ -365,6 +372,8 @@ module axi4_ic_formal #(
         end
     end
 
+`endif // ENV_FULL
+
     // A real slave holds its VALIDs low in reset just as the DUT must (PC12).
     // Without this the reset window is entirely unconstrained, and since the B
     // return path is a combinational mux off the slave's BVALID, a slave that
@@ -378,6 +387,7 @@ module axi4_ic_formal #(
         end
     end
 
+`ifdef ENV_FULL
     // Gated on `aresetn`, NOT on `chk`: the tracking registers below are cleared
     // by reset and are therefore already meaningful in the first cycle after
     // reset releases. Using `chk` here leaves a one-cycle hole at the reset
@@ -406,6 +416,7 @@ module axi4_ic_formal #(
             if (s1_wvalid) assume (s1_wlast == (s1_wbeat == s1_awlen_q));
         end
     end
+`endif // ENV_FULL
 
     // -------------------------------------------------------------------------
     // P1: nothing the DUT drives may be asserted during reset

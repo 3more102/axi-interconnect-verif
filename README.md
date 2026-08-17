@@ -17,9 +17,10 @@ No UVM, no SVA in the testbenches, no vendor IP.
 |---|---|
 | `rtl/` | 4 synthesizable modules: two interconnects, two slave devices |
 | `tb/` | 2 BFMs, 2 passive protocol checkers, 1 coverage collector, 4 testbenches |
-| `sim/` | Icarus flow: filelists, `Makefile`, `report.sh` |
+| `sim/` | Icarus flow: filelists, `Makefile`, `report.sh`; ModelSim `.do` + driver |
 | `formal/` | SymbiYosys harnesses and property sets |
-| `docs/` | `SPEC.md` (authoritative contract), `VERIF_PLAN.md` (what is verified, how) |
+| `mutation/` | bug-injection catalogue and runner |
+| `docs/` | `SPEC.md` (authoritative contract), `VERIF_PLAN.md`, `MUTATION_RESULTS.md` |
 
 ### RTL
 
@@ -89,21 +90,58 @@ cd sim && make run TB=tb_axi4_interconnect TEST=random SEED=7 DUMP=1
 
 Single run with waves. `make synth` elaborates all four RTL modules in Yosys.
 
+The same sources run under ModelSim ASE as a second simulator:
+
+```powershell
+cd sim\modelsim; .\run_modelsim.ps1
+```
+
 ---
 
 ## Results
 
-Measured on Icarus Verilog 12.0 and Yosys 0.68.
+Measured on Icarus Verilog 12.0, ModelSim ASE 10.5b, and Yosys 0.68.
 
 | Tier | Result |
 |---|---|
-| Regression (Icarus) | **27/27 runs PASS** — 23 distinct tests, the 4 random tests rerun at a second seed |
+| Regression (Icarus) | **28/28 runs PASS** — 24 distinct tests, the 4 random tests rerun at a second seed |
+| Regression (ModelSim ASE) | **28/28 runs PASS** — identical sources, second simulator |
 | Functional coverage | **35/35 bins hit** across the regression union (100%) |
+| Mutation audit | **14/14 injected defects killed**, 0 survivors |
 | Yosys elaboration | clean on all 4 RTL modules |
 | Formal — AXI4-Lite interconnect | **5/5 property groups proven unboundedly** |
 | Formal — AXI4 interconnect | reset and ID routing proven unboundedly |
 
-Per-testbench test lists are in [`docs/VERIF_PLAN.md`](docs/VERIF_PLAN.md).
+Per-testbench test lists are in [`docs/VERIF_PLAN.md`](docs/VERIF_PLAN.md); the
+mutation table and the three holes it exposed are in
+[`docs/MUTATION_RESULTS.md`](docs/MUTATION_RESULTS.md).
+
+### Mutation audit
+
+```bash
+cd mutation && ./run_mutations.sh
+```
+
+Fourteen single-line defects, applied one at a time to a scratch copy of the
+RTL; each must be caught by at least one test. The harness runs the clean tree
+first (so a "kill" can never be a pre-existing failure), hashes the RTL before
+and after each edit (so a `sed` that matches nothing is reported rather than
+counted), and reads verdicts from files rather than pipes.
+
+The first pass scored 11/14. All three survivors were real gaps:
+
+- an off-by-one on the memory's write range hid behind a *second* out-of-range
+  beat in every straddle test — the check's resolution was coarser than the
+  defect;
+- breaking the arbiter's round-robin update was invisible to the contention
+  test, because with single-outstanding masters the priority pointer is only
+  consulted on a genuine tie and no test created one;
+- removing reset gating from a master-port READY was invisible everywhere,
+  because the spec only constrains VALID during reset.
+
+Closing them added the `fairness` test, two boundary bursts, and a stronger
+formal reset property. Three of the fourteen mutations exist to check the
+**formal tier itself** — a prover that only ever prints PASS proves nothing.
 
 ### Formal property tier
 

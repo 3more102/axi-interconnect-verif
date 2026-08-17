@@ -344,6 +344,15 @@ module axi4_lite_ic_formal (
             assert (!m1_awvalid); assert (!m1_wvalid); assert (!m1_arvalid);
             assert (!s0_bvalid);  assert (!s0_rvalid);
             assert (!s1_bvalid);  assert (!s1_rvalid);
+            // READYs too, not just VALIDs. SPEC.md section 0 only constrains
+            // VALIDs in reset, which left a hole: dropping the reset term from a
+            // master-port AWREADY was invisible to every tier (mutation M13).
+            // Every DUT-driven READY here is already reset-gated, so requiring
+            // it costs nothing and closes that hole.
+            assert (!s0_awready); assert (!s0_wready); assert (!s0_arready);
+            assert (!s1_awready); assert (!s1_wready); assert (!s1_arready);
+            assert (!m0_bready);  assert (!m0_rready);
+            assert (!m1_bready);  assert (!m1_rready);
         end
     end
 `endif

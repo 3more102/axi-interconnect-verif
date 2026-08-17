@@ -256,6 +256,9 @@ module tb_axi4_lite_interconnect;
   integer     sb_err1;        // master 1 thread only
   integer     bfm_errors;     // lite BFM has no self-checks -> stays 0
   integer     ops0, ops1;     // completed ops per master (fairness evidence)
+  integer     win_m0, win_m1; // arbiter tie wins per master (test_fairness)
+  integer     exp_prio;       // modelled round-robin priority pointer
+  reg [63:0]  t0_done, t1_done;
   integer     i;
   integer     j0, j1;
 
@@ -533,6 +536,74 @@ module tb_axi4_lite_interconnect;
     end
   endtask
 
+  // fairness: force a genuine arbiter TIE every round and check the winner
+  // against the SPEC.md section 3 round-robin rule (F21).
+  //
+  // The contention test never exercises the priority pointer at all: each master
+  // is single-outstanding, so when a grant is released the master that just
+  // finished has no AW pending yet and the other one wins by default whatever
+  // the pointer says. Breaking the round-robin update therefore survives
+  // contention entirely. Here both masters are launched at the same instant with
+  // zero inter-phase delay, so both AWs really are pending and the pointer alone
+  // decides. Whichever master's B returns first won that round.
+  //
+  // The expected winner is NOT an even split. The rule is "after a master
+  // completes on a destination, the other master has priority next time". Each
+  // round contains TWO completions -- the tie winner, then the loser -- so the
+  // pointer flips twice and comes back to where it started. The same master
+  // therefore wins every tie, and that is correct round-robin, not starvation:
+  // the loser still completes every single round, just second. A pointer that
+  // fails to alternate would instead hand the tie to a different master each
+  // round, i.e. an even split. So the model below is the check, and "roughly
+  // even" would have been exactly the wrong assertion.
+  task test_fairness;
+    begin
+      u_bfm0.max_delay = 0;
+      u_bfm1.max_delay = 0;
+      win_m0   = 0;
+      win_m1   = 0;
+      exp_prio = 0;          // both arbiters reset with priority to master 0
+      for (i = 0; i < 20; i = i + 1) begin
+        t0_done = 64'd0;
+        t1_done = 64'd0;
+        fork
+          begin
+            do_write_m0(sa(0, 0), 32'h7000_0000 | i, 4'hF);
+            t0_done = $time;
+          end
+          begin
+            do_write_m1(sa(0, 6), 32'h8000_0000 | i, 4'hF);
+            t1_done = $time;
+          end
+        join
+        if (t0_done < t1_done)      win_m0 = win_m0 + 1;
+        else if (t1_done < t0_done) win_m1 = win_m1 + 1;
+
+        if (t0_done != t1_done) begin
+          if (((t0_done < t1_done) ? 0 : 1) != exp_prio) begin
+            sb_err0 = sb_err0 + 1;
+            $display("[TB] %0t SB: round %0d tie went to master %0d, %0s %0d",
+                     $time, i, (t0_done < t1_done) ? 0 : 1,
+                     "round-robin rule expected master", exp_prio);
+          end
+        end
+        // two completions per round flip the pointer twice: net unchanged
+        exp_prio = exp_prio;
+      end
+      $display("[TB] %0t fairness: master0 won %0d ties, master1 won %0d",
+               $time, win_m0, win_m1);
+      // both masters must still have completed every round -- no starvation
+      if ((win_m0 + win_m1) != 20) begin
+        sb_err0 = sb_err0 + 1;
+        $display("[TB] %0t SB: only %0d of 20 rounds produced a decided tie",
+                 $time, win_m0 + win_m1);
+      end
+      // and the data from every round must still be correct
+      do_read_m0(sa(0, 0));
+      do_read_m1(sa(0, 6));
+    end
+  endtask
+
   // random: both masters, 100 ops each over the full map, model-checked.
   // Each master keeps to its own register range and its own invalid indices,
   // so the model is race-free despite the two threads running concurrently.
@@ -672,6 +743,7 @@ module tb_axi4_lite_interconnect;
     else if (testname == "decerr")     test_decerr;
     else if (testname == "contention") test_contention;
     else if (testname == "parallel")   test_parallel;
+    else if (testname == "fairness")   test_fairness;
     else if (testname == "random")     test_random;
     else begin
       $display("[TB] %0t unknown TEST=%0s", $time, testname);
