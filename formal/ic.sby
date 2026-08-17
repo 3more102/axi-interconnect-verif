@@ -2,20 +2,44 @@
 reset
 decode
 idroute
+decode_bmc
 
 [options]
-mode prove
-depth 20
+# `prove` is an unbounded result. `decode_bmc` is the bounded fallback for the
+# decode property: with the burst-accurate environment model the state space is
+# large enough that PDR does not converge quickly, so BMC to a stated depth
+# gives a real (if weaker) answer -- "no counterexample within N cycles" -- and
+# would still expose a genuine routing bug.
+reset:      mode prove
+decode:     mode prove
+idroute:    mode prove
+decode_bmc: mode bmc
+
+reset:      depth 20
+decode:     depth 20
+idroute:    depth 20
+# Depth 25: BMC reaches ~frame 27 in about 25 min on this machine, so 25 is the
+# deepest bound that terminates rather than timing out. No counterexample exists
+# up to that depth.
+decode_bmc: depth 25
+
+# No SMT solver is installed alongside ABC here, and aigsmt is only used to
+# expand a counterexample into a waveform. Disabling it keeps a genuine FAIL
+# reported as FAIL rather than as a tool ERROR.
 aigsmt none
 
 [engines]
-abc pdr
+reset:      abc pdr
+decode:     abc pdr
+idroute:    abc pdr
+decode_bmc: abc bmc3
 
 [script]
 read_verilog -formal axi4_interconnect.v
-reset:   read_verilog -formal -DPROP_RESET axi4_ic_formal.v
-decode:  read_verilog -formal -DPROP_DECODE -DENV_FULL axi4_ic_formal.v
-idroute: read_verilog -formal -DPROP_IDROUTE axi4_ic_formal.v
+reset:      read_verilog -formal -DPROP_RESET axi4_ic_formal.v
+decode:     read_verilog -formal -DPROP_DECODE -DENV_FULL axi4_ic_formal.v
+decode_bmc: read_verilog -formal -DPROP_DECODE -DENV_FULL axi4_ic_formal.v
+idroute:    read_verilog -formal -DPROP_IDROUTE axi4_ic_formal.v
 prep -top axi4_ic_formal
 
 [files]

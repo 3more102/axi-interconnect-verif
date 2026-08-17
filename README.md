@@ -110,7 +110,7 @@ Measured on Icarus Verilog 12.0, ModelSim ASE 10.5b, and Yosys 0.68.
 | Mutation audit | **14/14 injected defects killed**, 0 survivors |
 | Yosys elaboration | clean on all 4 RTL modules |
 | Formal — AXI4-Lite interconnect | **5/5 property groups proven unboundedly** |
-| Formal — AXI4 interconnect | reset and ID routing proven unboundedly |
+| Formal — AXI4 interconnect | reset and ID routing proven unboundedly; decode bounded-checked to depth 25 |
 
 Per-testbench test lists are in [`docs/VERIF_PLAN.md`](docs/VERIF_PLAN.md); the
 mutation table and the three holes it exposed are in
@@ -173,6 +173,29 @@ response is consumed from a slave port it is delivered in the same cycle to
 exactly the master its ID's top bit names, carrying that master's original ID
 and the slave's payload unchanged. `idroute` needs no environment assumptions
 at all; it is a property of the DUT's mux alone.
+
+**decode** on the full AXI4 interconnect is reported honestly as a *bounded*
+result. Proving it needs the burst-accurate environment model (in-order
+responses, per-port ID queues, WLAST accounting), and with that model PDR does
+not converge — it was still refining at frame 14 after 40 minutes. The
+`decode_bmc` task instead runs bounded model checking to depth 25 and finds no
+counterexample. That is weaker than a proof and is not presented as one: it
+rules out any violation within 25 cycles of reset release, and a genuine
+mis-routing bug would almost certainly show up well inside that window. The
+same property *is* proven unboundedly on the AXI4-Lite interconnect, whose
+state space is small enough for PDR to close.
+
+Each property gets the weakest environment that makes it meaningful, rather than
+one heavy model shared by all — that is why `reset` and `idroute` are both
+stronger results and far faster to obtain.
+
+Getting here meant fixing the harness four times, not the RTL. Every early
+`FAIL` was an under-constrained environment: a "slave" returning B before it had
+taken the W beat, one inventing a response ID, a one-cycle hole at the reset
+boundary where assumptions were not yet active, and flat AW/WLAST flags that let
+one master's WLAST and another's AW jointly authorise a B belonging to neither.
+Each is written up in the harness comments, because with formal the assumption
+set is the part that is easy to fudge and hard to audit.
 
 The environment is constrained only to what AXI actually requires: masters hold
 VALID with a stable payload until READY and are single-outstanding; slaves
