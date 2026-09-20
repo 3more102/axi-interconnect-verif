@@ -1,8 +1,10 @@
-name: Project 14 Python Verification
+name: Project 14 Verification
 
 on:
   push:
-    branches: [project14-axi-ucie]
+    branches:
+      - main
+      - "project14-*"
     paths:
       - "project14_axi_ucie/**"
       - ".github/workflows/project14-python.yml"
@@ -23,16 +25,26 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Extract Project 14
-        run: |
-          rm -rf /tmp/project14
-          mkdir -p /tmp/project14
-          unzip -q project14_axi_ucie/AXI_UCIe_CoverageGuided_Project14.zip -d /tmp/project14
-
       - name: Install test dependency
         run: python -m pip install "pytest>=8"
 
       - name: Run coverage-guidance tests
         run: |
-          cd /tmp/project14/AXI_UCIe_CoverageGuided
-          python -m pytest -q
+          cd project14_axi_ucie/source
+          python -m pytest -q tests/test_coverage_guide.py
+
+  rtl-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Icarus Verilog
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y iverilog
+
+      - name: Compile and run AXI/UCIe RTL smoke test
+        run: |
+          cd project14_axi_ucie/source
+          bash scripts/run_rtl_smoke.sh
