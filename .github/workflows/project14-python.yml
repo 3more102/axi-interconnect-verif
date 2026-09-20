@@ -1,0 +1,38 @@
+name: Project 14 Python Verification
+
+on:
+  push:
+    branches: [project14-axi-ucie]
+    paths:
+      - "project14_axi_ucie/**"
+      - ".github/workflows/project14-python.yml"
+  pull_request:
+    paths:
+      - "project14_axi_ucie/**"
+      - ".github/workflows/project14-python.yml"
+
+jobs:
+  coverage-guide-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Extract Project 14
+        run: |
+          rm -rf /tmp/project14
+          mkdir -p /tmp/project14
+          unzip -q project14_axi_ucie/AXI_UCIe_CoverageGuided_Project14.zip -d /tmp/project14
+
+      - name: Install test dependency
+        run: python -m pip install "pytest>=8"
+
+      - name: Run coverage-guidance tests
+        run: |
+          cd /tmp/project14/AXI_UCIe_CoverageGuided
+          python -m pytest -q
